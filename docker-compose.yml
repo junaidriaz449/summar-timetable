@@ -1,0 +1,22 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - db_data:/data
+    environment:
+      - DATABASE_URL=sqlite:////data/db.sqlite
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "4173:4173"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    # VITE_API_BASE is baked in at build time via Dockerfile ENV
+
+volumes:
+  db_data:
