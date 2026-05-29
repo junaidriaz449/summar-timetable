@@ -162,6 +162,15 @@ class BadgeOut(BaseModel):
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────
 
+class DayStats(BaseModel):
+    date: date
+    day_label: str
+    points_earned: int
+    tasks_completed: int
+    is_today: bool
+    badges: List[BadgeOut]
+
+
 class KidWeeklyStats(BaseModel):
     kid_id: int
     name: str
@@ -173,6 +182,7 @@ class KidWeeklyStats(BaseModel):
     longest_streak: int
     category_breakdown: dict
     badges_this_week: List[BadgeOut]
+    days_breakdown: List[DayStats] = []
 
 
 class DashboardOut(BaseModel):

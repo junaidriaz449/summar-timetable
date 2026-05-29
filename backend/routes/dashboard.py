@@ -5,7 +5,7 @@ from sqlalchemy import func
 
 from database import get_db
 from models import Kid, DailyLog, Task, PointsBalance, Streak, Badge, CategoryEnum
-from schemas import DashboardOut, KidWeeklyStats, BadgeOut
+from schemas import DashboardOut, KidWeeklyStats, BadgeOut, DayStats
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -46,6 +46,51 @@ def weekly_dashboard(db: Session = Depends(get_db)):
             .all()
         )
 
+        # Per-day breakdown (grouped queries for efficiency)
+        day_pts_rows = (
+            db.query(DailyLog.date, func.sum(Task.points).label("pts"))
+            .join(Task, Task.id == DailyLog.task_id)
+            .filter(DailyLog.kid_id == kid.id, DailyLog.date >= week_start, DailyLog.date <= week_end)
+            .group_by(DailyLog.date)
+            .all()
+        )
+        pts_by_date = {r.date: r.pts for r in day_pts_rows}
+
+        day_task_rows = (
+            db.query(DailyLog.date, func.count(DailyLog.id).label("cnt"))
+            .filter(DailyLog.kid_id == kid.id, DailyLog.date >= week_start, DailyLog.date <= week_end)
+            .group_by(DailyLog.date)
+            .all()
+        )
+        tasks_by_date = {r.date: r.cnt for r in day_task_rows}
+
+        week_badges_all = (
+            db.query(Badge)
+            .filter(
+                Badge.kid_id == kid.id,
+                func.date(Badge.earned_at) >= week_start,
+                func.date(Badge.earned_at) <= week_end,
+            )
+            .all()
+        )
+        badges_by_date = {}
+        for b in week_badges_all:
+            day = b.earned_at.date()
+            badges_by_date.setdefault(day, []).append(b)
+
+        day_labels = ["SAT", "SUN", "MON", "TUE", "WED", "THU", "FRI"]
+        days_breakdown = []
+        for i in range(7):
+            day_date = week_start + timedelta(days=i)
+            days_breakdown.append(DayStats(
+                date=day_date,
+                day_label=day_labels[i],
+                points_earned=pts_by_date.get(day_date, 0),
+                tasks_completed=tasks_by_date.get(day_date, 0),
+                is_today=(day_date == today),
+                badges=[BadgeOut.model_validate(b) for b in badges_by_date.get(day_date, [])],
+            ))
+
         kid_stats.append(KidWeeklyStats(
             kid_id=kid.id,
             name=kid.name,
@@ -57,6 +102,7 @@ def weekly_dashboard(db: Session = Depends(get_db)):
             longest_streak=st.longest_streak if st else 0,
             category_breakdown=breakdown,
             badges_this_week=[BadgeOut.model_validate(b) for b in badges],
+            days_breakdown=days_breakdown,
         ))
 
     leader_id = None

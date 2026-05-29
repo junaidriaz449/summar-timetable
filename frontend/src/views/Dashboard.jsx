@@ -12,6 +12,87 @@ const CATEGORY_ICONS = {
   screen: '📺',
 }
 
+function WeekTimeline({ kids }) {
+  const days = kids[0]?.days_breakdown ?? []
+  const now = new Date()
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border-2 border-amber/20 dark:border-gray-700 p-4">
+      <h2 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-3">
+        Week at a Glance
+      </h2>
+      <div className="space-y-1.5">
+        {days.map((day, i) => {
+          const dayDate = new Date(day.date + 'T00:00:00')
+          const isFuture = !day.is_today && dayDate > now
+          const accentColor = kids[0]?.color_theme ?? '#1B5E20'
+
+          return (
+            <motion.div
+              key={day.date}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className={[
+                'flex items-center gap-3 rounded-xl px-3 py-2 border',
+                day.is_today
+                  ? 'border-l-4 bg-gray-50 dark:bg-gray-750 border-gray-100 dark:border-gray-700'
+                  : 'border-gray-100 dark:border-gray-700',
+                isFuture ? 'opacity-35' : '',
+              ].join(' ')}
+              style={day.is_today ? { borderLeftColor: accentColor } : {}}
+            >
+              <div className="w-12 flex-shrink-0">
+                <p className="text-xs font-black text-gray-500 dark:text-gray-400">{day.day_label}</p>
+                <p className="text-xs text-gray-300 dark:text-gray-600">
+                  {dayDate.toLocaleDateString('en-PK', { month: 'short', day: 'numeric' })}
+                </p>
+              </div>
+
+              <div className="flex flex-1 gap-3">
+                {kids.map((kid) => {
+                  const kidDay = kid.days_breakdown?.[i]
+                  const hasPoints = !isFuture && kidDay?.points_earned > 0
+                  return (
+                    <div key={kid.kid_id} className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1">
+                        <span className="text-base leading-none">{kid.avatar_emoji}</span>
+                        {hasPoints ? (
+                          <span className="text-xs font-black" style={{ color: kid.color_theme }}>
+                            {kidDay.points_earned} pts
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold text-gray-300 dark:text-gray-600">—</span>
+                        )}
+                      </div>
+                      {!isFuture && kidDay?.badges?.length > 0 && (
+                        <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                          {kidDay.badges.map(b => (
+                            <span key={b.id} title={b.badge_label} className="text-sm leading-none">{b.badge_emoji}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {day.is_today && (
+                <span
+                  className="text-xs font-black px-1.5 py-0.5 rounded-full text-white flex-shrink-0"
+                  style={{ backgroundColor: accentColor }}
+                >
+                  today
+                </span>
+              )}
+            </motion.div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -42,6 +123,10 @@ export default function Dashboard() {
       </div>
 
       <div className="px-4 py-4 space-y-4 max-w-2xl mx-auto">
+        {kids.every(k => k.days_breakdown?.length === 7) && (
+          <WeekTimeline kids={kids} />
+        )}
+
         {/* Points comparison */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border-2 border-amber/20 dark:border-gray-700 p-4">
           <h2 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4">This Week's Points</h2>
